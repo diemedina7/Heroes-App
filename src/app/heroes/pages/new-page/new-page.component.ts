@@ -1,10 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { FormControl, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 
+import { filter, switchMap, tap } from 'rxjs';
+
+import { ConfirmDialogComponent } from '../../components/confirm-dialog/confirm-dialog.component';
 import { Hero, Publisher } from '../../interfaces/hero.interface';
 import { HeroesService } from '../../services/heroes.service';
-import { switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-new-page',
@@ -30,7 +34,12 @@ export class NewPageComponent implements OnInit {
     { id: 'Marvel Comics', desc: 'Marvel - Comics'},
   ];
 
-  constructor( private heroesService: HeroesService, private activatedRoute: ActivatedRoute, private router: Router ) {}
+  constructor(
+    private heroesService: HeroesService,
+    private activatedRoute: ActivatedRoute,
+    private router: Router,
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog ) {}
 
   get currentHero(): Hero {
     const hero = this.heroForm.value as Hero;
@@ -60,7 +69,7 @@ export class NewPageComponent implements OnInit {
     if (this.currentHero.id) {
       this.heroesService.updateHero( this.currentHero ).subscribe(
         hero => {
-          // TODO: mostrar snackbar
+          this.showSnakbar(`${ hero.superhero } actualizado!`)
         }
       );
 
@@ -69,8 +78,47 @@ export class NewPageComponent implements OnInit {
 
     this.heroesService.addHero( this.currentHero ).subscribe(
       hero => {
-        // TODO: mostrar snackbar y navegar a /heroes/edit/hero.id
+        this.showSnakbar(`${ hero.superhero } creado!`);
+        this.router.navigate(['/heroes/edit/', hero.id]);
       }
     );
+  }
+
+  onDeleteHero(): void {
+    if (!this.currentHero.id)
+      throw Error('Hero id is required!');
+
+      const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+        data: this.heroForm.value
+      });
+
+      dialogRef.afterClosed()
+        .pipe(
+          filter( (result: boolean) => result ),
+          switchMap( () => this.heroesService.deleteHeroById(this.currentHero.id) ),
+          filter( (wasDeleted: boolean) => wasDeleted )
+        )
+        .subscribe( () => {
+          this.router.navigateByUrl('/');
+        });
+
+      // CODIGO DE DIALOG ANTERIOR CON DOBLE SUBSCRIBE ANIDADO (MALA PRACTICA DE PROGRAMACION)
+      /*dialogRef.afterClosed().subscribe(result => {
+        if (!result)
+          return;
+
+        this.heroesService.deleteHeroById(this.currentHero.id).subscribe(
+          wasDeleted => {
+            if (wasDeleted)
+              this.router.navigateByUrl('/');
+          }
+        );
+      });*/
+  }
+
+  private showSnakbar(message: string): void {
+    this.snackBar.open(message, 'Cerrar', {
+      duration: 2500
+    })
   }
 }
