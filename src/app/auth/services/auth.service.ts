@@ -38,7 +38,7 @@ export class AuthService {
 
     return this.http.get<User>(`${ this.baseUrl }/users/1`)
       .pipe(
-        tap( user => user = user ),
+        tap( user => this.user = user ),
         map( user => !!user ),        //valido que el objeto user tiene datos
         catchError( () => of(false) )
       );
